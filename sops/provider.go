@@ -11,5 +11,8 @@ func Provider() terraform.ResourceProvider {
 			"sops_file":     dataSourceFile(),
 			"sops_external": dataSourceExternal(),
 		},
+		ResourcesMap: map[string]*schema.Resource{
+			"sops_file": resourceSourceFile(),
+		},
 	}
 }
