@@ -7,6 +7,7 @@ import (
 
 func Provider() terraform.ResourceProvider {
 	return &schema.Provider{
+		Schema: map[string]*schema.Schema{},
 		DataSourcesMap: map[string]*schema.Resource{
 			"sops_file":     dataSourceFile(),
 			"sops_external": dataSourceExternal(),

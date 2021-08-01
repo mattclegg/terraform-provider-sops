@@ -6,7 +6,7 @@ CROSSBUILD_OS   = linux#windows darwin
 CROSSBUILD_ARCH = amd64# arm64 386
 SKIP_OSARCH     = darwin_386 windows_arm64
 OSARCH_COMBOS   = $(filter-out $(SKIP_OSARCH),$(foreach os,$(CROSSBUILD_OS),$(addprefix $(os)_,$(CROSSBUILD_ARCH))))
-RELEASE_FOLDER  = ~/.terraform.d/plugins/hashicorp.com/lokkersp/sops/$(VERSION)/linux_amd64
+RELEASE_FOLDER  = ~/.terraform.d/plugins/registry.terraform.io/lokkersp/sops/0.6.6/linux_amd64
 
 
 default: build
@@ -39,19 +39,21 @@ $(GOPATH)/bin/gox:
 install: crossbuild
 	@echo ">> install locally"
 	mkdir -p $(RELEASE_FOLDER)
-	mkdir -p $(RELEASE_SHARE_FOLDER)
 	cp binaries/$(VERSION)/linux_amd64/terraform-provider-sops_$(VERSION) $(RELEASE_FOLDER)/terraform-provider-sops_$(VERSION)
-
+# ./bin/hub release edit -m "" -a "releases/terraform-provider-sops_v0.6.4_linux_amd64.zip" v0.6.4
+# ./bin/hub release edit -m "" -a "releases/terraform-provider-sops_0.6.4_linux_amd64.zip#terraform-provider-sops_0.6.4_linux_amd64.zip" v0.6.4
 release: crossbuild bin/hub
 	@echo ">> uploading release $(VERSION)"
 	mkdir -p releases
 	set -e; for OSARCH in $(OSARCH_COMBOS); do \
 		zip -j releases/terraform-provider-sops_$(RELEASE)_$$OSARCH.zip binaries/$(VERSION)/$$OSARCH/terraform-provider-sops_* > /dev/null; \
-		./bin/hub release edit -m "" -a "releases/terraform-provider-sops_$(RELEASE)_$$OSARCH.zip#terraform-provider-sops_$(RELEASE)_$$OSARCH.zip" $(VERSION); \
+		./bin/hub release create -m "$(RELEASE)" -a "releases/terraform-provider-sops_$(RELEASE)_$$OSARCH.zip#terraform-provider-sops_$(RELEASE)_$$OSARCH.zip" $(VERSION); \
 	done
 	@echo ">>> generating sha256sums:"
 	cd releases; sha256sum *.zip | tee terraform-provider-sops_$(RELEASE)_SHA256SUMS
+	cd releases; gpg --detach-sign terraform-provider-sops_$(RELEASE)_SHA256SUMS
 	./bin/hub release edit -m "" -a "releases/terraform-provider-sops_$(RELEASE)_SHA256SUMS#terraform-provider-sops_$(RELEASE)_SHA256SUMS" $(VERSION)
+	./bin/hub release edit -m "" -a "releases/terraform-provider-sops_$(RELEASE)_SHA256SUMS.sig#terraform-provider-sops_$(RELEASE)_SHA256SUMS.sig" $(VERSION)
 
 bin/hub:
 	@mkdir -p bin

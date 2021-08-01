@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	sops "go.mozilla.org/sops/v3"
+	"go.mozilla.org/sops/v3/aes"
 	age "go.mozilla.org/sops/v3/age"
 	sopsKms "go.mozilla.org/sops/v3/kms"
 	"io/ioutil"
@@ -20,12 +20,12 @@ func resourceSourceFile() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			"filename": {
 				Type:     schema.TypeString,
-				Optional: false,
+				Required: true,
 				ForceNew: true,
 			},
 			"encryption_type": {
 				Type:     schema.TypeString,
-				Optional: false,
+				Required: true,
 				ForceNew: true,
 			},
 			"content": {
@@ -49,11 +49,25 @@ func resourceSourceFile() *schema.Resource {
 					Type: schema.TypeString,
 				},
 			},
+			"file_permission": {
+				Type:         schema.TypeString,
+				Description:  "Permissions to set for the output file",
+				Optional:     true,
+				ForceNew:     true,
+				Default:      "0777",
+				ValidateFunc: validateMode,
+			},
+			"directory_permission": {
+				Type:         schema.TypeString,
+				Description:  "Permissions to set for directories created",
+				Optional:     true,
+				ForceNew:     true,
+				Default:      "0777",
+				ValidateFunc: validateMode,
+			},
 		},
 		Create: resourceSopsFileCreate,
-		Update: func(data *schema.ResourceData, i interface{}) error {
-			return nil
-		},
+		Read:   resourceSopsFileRead,
 		Delete: resourceSopsFileDelete,
 	}
 
@@ -83,11 +97,13 @@ func resourceLocalFileContent(d *schema.ResourceData) ([]byte, error) {
 
 func sopsEncrypt(d *schema.ResourceData, content *string) ([]byte, error) {
 	encType := d.Get("encryption_type").(string)
+	fmt.Printf("enc type: %s\n", encType)
 	encryptionKey, err := getEncryptionKey(d, encType)
 	if err != nil {
+		fmt.Errorf("failed to get enc key for:%s", encType)
 		return nil, err
 	}
-	encrypt, err := sops.Cipher.Encrypt(nil, content, encryptionKey, "")
+	encrypt, err := aes.NewCipher().Encrypt(content, encryptionKey, "")
 	if err != nil {
 		return nil, err
 	}
@@ -96,22 +112,23 @@ func sopsEncrypt(d *schema.ResourceData, content *string) ([]byte, error) {
 
 func getEncryptionKey(d *schema.ResourceData, encType string) ([]byte, error) {
 	var encryptionKey []byte
+	fmt.Printf("%s", d)
 	switch encType {
 	case "kms":
-		kmsConf := d.Get("kms").(schema.ResourceData)
-		arn := kmsConf.Get("arn")
+		kmsConf := d.Get("kms").(map[string]interface{})
+		arn := kmsConf["arn"]
 		if arn == nil {
 			return nil, fmt.Errorf("arn is not set")
 		}
-		profile := kmsConf.Get("profile")
+		profile := kmsConf["profile"]
 		if profile == nil {
 			return nil, fmt.Errorf("AWS profile is not set")
 		}
 		masterKey := sopsKms.NewMasterKeyFromArn(arn.(string), nil, profile.(string))
 		encryptionKey = masterKey.EncryptedDataKey()
 	case "age":
-		ageConf := d.Get("age").(schema.ResourceData)
-		ageKey := ageConf.Get("key")
+		ageConf := d.Get("age").(map[string]interface{})
+		ageKey := ageConf["key"]
 		if ageKey == nil {
 			return nil, fmt.Errorf("Age key is not set")
 		}
@@ -159,4 +176,50 @@ func resourceSopsFileCreate(d *schema.ResourceData, i interface{}) error {
 
 	return nil
 
+}
+
+func resourceSopsFileRead(d *schema.ResourceData, i interface{}) error {
+	// If the output file doesn't exist, mark the resource for creation.
+	outputPath := d.Get("filename").(string)
+	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
+		d.SetId("")
+		return nil
+	}
+
+	// Verify that the content of the destination file matches the content we
+	// expect. Otherwise, the file might have been modified externally and we
+	// must reconcile.
+	outputContent, err := ioutil.ReadFile(outputPath)
+	if err != nil {
+		return err
+	}
+
+	outputChecksum := sha1.Sum(outputContent)
+	if hex.EncodeToString(outputChecksum[:]) != d.Id() {
+		d.SetId("")
+		return nil
+	}
+
+	return nil
+}
+
+func validateMode(i interface{}, k string) (s []string, es []error) {
+	v, ok := i.(string)
+
+	if !ok {
+		es = append(es, fmt.Errorf("expected type of %s to be string", k))
+		return
+	}
+
+	if len(v) > 4 || len(v) < 3 {
+		es = append(es, fmt.Errorf("bad mode for file - string length should be 3 or 4 digits: %s", v))
+	}
+
+	fileMode, err := strconv.ParseInt(v, 8, 64)
+
+	if err != nil || fileMode > 0777 || fileMode < 0 {
+		es = append(es, fmt.Errorf("bad mode for file - must be three octal digits: %s", v))
+	}
+
+	return
 }
