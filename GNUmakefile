@@ -2,10 +2,12 @@ export CGO_ENABLED = 0
 VERSION = $(shell git describe --tags --match='v*' --always)
 RELEASE = $(patsubst v%,%,$(VERSION))# Remove leading v to comply with Terraform Registry conventions
 
-CROSSBUILD_OS   = linux windows darwin
-CROSSBUILD_ARCH = 386 amd64 arm64
+CROSSBUILD_OS   = linux#windows darwin
+CROSSBUILD_ARCH = amd64# arm64 386
 SKIP_OSARCH     = darwin_386 windows_arm64
 OSARCH_COMBOS   = $(filter-out $(SKIP_OSARCH),$(foreach os,$(CROSSBUILD_OS),$(addprefix $(os)_,$(CROSSBUILD_ARCH))))
+RELEASE_FOLDER  = ~/.terraform.d/plugins/hashicorp.com/lokkersp/sops/$(VERSION)/linux_amd64
+
 
 default: build
 
@@ -33,6 +35,12 @@ crossbuild: $(GOPATH)/bin/gox
 $(GOPATH)/bin/gox:
 	# Need to disable modules for this to not pollute go.mod
 	@GO111MODULE=off go get -u github.com/mitchellh/gox
+
+install: crossbuild
+	@echo ">> install locally"
+	mkdir -p $(RELEASE_FOLDER)
+	mkdir -p $(RELEASE_SHARE_FOLDER)
+	cp binaries/$(VERSION)/linux_amd64/terraform-provider-sops_$(VERSION) $(RELEASE_FOLDER)/terraform-provider-sops_$(VERSION)
 
 release: crossbuild bin/hub
 	@echo ">> uploading release $(VERSION)"
