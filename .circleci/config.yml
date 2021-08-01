@@ -3,7 +3,7 @@ jobs:
   build:
     docker:
       - image: circleci/golang:1.16
-    working_directory: /go/src/github.com/carlpett/terraform-provider-sops
+    working_directory: /go/src/github.com/lokkersp/terraform-provider-sops
     steps:
       - checkout
       - run: gpg --import test/testing-key.pgp
@@ -13,7 +13,7 @@ jobs:
   release:
     docker:
       - image: circleci/golang:1.16
-    working_directory: /go/src/github.com/carlpett/terraform-provider-sops
+    working_directory: /go/src/github.com/lokkersp/terraform-provider-sops
     steps:
       - checkout
       - run: gpg --import test/testing-key.pgp

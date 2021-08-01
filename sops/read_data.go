@@ -7,8 +7,8 @@ import (
 	"go.mozilla.org/sops/v3/decrypt"
 	"gopkg.in/yaml.v2"
 
-	"github.com/carlpett/terraform-provider-sops/sops/internal/dotenv"
-	"github.com/carlpett/terraform-provider-sops/sops/internal/ini"
+	"github.com/lokkersp/terraform-provider-sops/sops/internal/dotenv"
+	"github.com/lokkersp/terraform-provider-sops/sops/internal/ini"
 )
 
 // readData consolidates the logic of extracting the from the various input methods and setting it on the ResourceData
