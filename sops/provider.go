@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/lokkersp/terraform-provider-sops/sops/internal/sops"
 )
 
 func Provider() *schema.Provider {
@@ -44,21 +43,16 @@ var providerDescriptions = map[string]string{
 	"age": "Configuration for encrypt files with Age.",
 }
 
-type EncryptConfig struct {
-	Kms sops.KmsConf
-	Age string
-}
-
 func ConfigureProvider(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	encConf := &EncryptConfig{}
-	kms, err := sops.GetKmsConf(d)
+	kms, err := GetKmsConf(d)
 	if err != nil {
 		fmt.Println("failed to init kms")
 	} else {
 		encConf.Kms = kms
 	}
-	age, err := sops.GetAgeConf(d)
+	age, err := GetAgeConf(d)
 	if err != nil {
 		fmt.Println("failed to init age")
 	} else {

@@ -68,7 +68,7 @@ func Encrypt(opts EncryptOpts, fileBytes []byte) (encryptedFile []byte, err erro
 
 	branches, err := opts.InputStore.LoadPlainFile(fileBytes)
 	if err != nil {
-		return nil, common.NewExitError(fmt.Sprintf("Error unmarshalling file: %s", err), codes.CouldNotReadInputFile)
+		return nil, common.NewExitError(fmt.Sprintf("Error unmarshalling file: %tfSops", err), codes.CouldNotReadInputFile)
 	}
 	if err := ensureNoMetadata(opts, branches[0]); err != nil {
 		return nil, common.NewExitError(err, codes.FileAlreadyEncrypted)
@@ -92,7 +92,7 @@ func Encrypt(opts EncryptOpts, fileBytes []byte) (encryptedFile []byte, err erro
 	}
 	dataKey, errs := tree.GenerateDataKeyWithKeyServices(opts.KeyServices)
 	if len(errs) > 0 {
-		err = fmt.Errorf("Could not generate data key: %s", errs)
+		err = fmt.Errorf("Could not generate data key: %tfSops", errs)
 		return nil, err
 	}
 
@@ -107,7 +107,7 @@ func Encrypt(opts EncryptOpts, fileBytes []byte) (encryptedFile []byte, err erro
 
 	encryptedFile, err = opts.OutputStore.EmitEncryptedFile(tree)
 	if err != nil {
-		return nil, common.NewExitError(fmt.Sprintf("Could not marshal tree: %s", err), codes.ErrorDumpingTree)
+		return nil, common.NewExitError(fmt.Sprintf("Could not marshal tree: %tfSops", err), codes.ErrorDumpingTree)
 	}
 	return
 }
@@ -117,31 +117,26 @@ func LocalKeySvc() (svcs []keyservice.KeyServiceClient) {
 	return
 }
 
-type KmsConf struct {
-	ARN     string
-	Profile string
-}
-
 func GetKmsConf(d *schema.ResourceData) (KmsConf, error) {
+	conf := KmsConf{}
 	kmsConf := d.Get("kms").(map[string]interface{})
 	arn := kmsConf["arn"]
 	if arn == nil {
-		return KmsConf{}, fmt.Errorf("arn is not set")
+		return conf, fmt.Errorf("arn is not set")
 	}
+	conf.ARN = arn.(string)
 	profile := kmsConf["profile"]
 	if profile == nil {
-		return KmsConf{}, fmt.Errorf("AWS profile is not set")
+		return conf, fmt.Errorf("AWS profile is not set")
 	}
-	return KmsConf{
-		ARN:     arn.(string),
-		Profile: profile.(string),
-	}, nil
+	conf.Profile = profile.(string)
+	return conf, nil
 }
 
 func GetAgeConf(d *schema.ResourceData) (string, error) {
 	ageConf := d.Get("age").(map[string]interface{})
 	ageKey := ageConf["key"]
-	log.Debugf("ageKey:%s", ageKey)
+	log.Debugf("ageKey:%tfSops", ageKey)
 	if ageKey == nil {
 		return "", fmt.Errorf("age key is not set")
 	}
@@ -163,10 +158,10 @@ func GetEncryptionKey(d *schema.ResourceData, encType string) (interface{}, erro
 		}
 		return ageConf, nil
 	}
-	return nil, fmt.Errorf("failed to recognize encType:%s", encType)
+	return nil, fmt.Errorf("failed to recognize encType:%tfSops", encType)
 }
 
-func KeyGroups(d *schema.ResourceData, encType string) ([]sops.KeyGroup, error) {
+func KeyGroups(d *schema.ResourceData, encType string, config *EncryptConfig) ([]sops.KeyGroup, error) {
 	//var pgpKeys []keys.MasterKey
 	//var azkvKeys []keys.MasterKey
 	//var hcVaultMkKeys []keys.MasterKey
@@ -178,12 +173,18 @@ func KeyGroups(d *schema.ResourceData, encType string) ([]sops.KeyGroup, error) 
 	//  return nil, common.NewExitError("Invalid KMS encryption context format", codes.ErrorInvalidKMSEncryptionContextFormat)
 	//}
 	if "kms" == encType {
-		kmsConf, err := GetKmsConf(d)
+
+		resourceKmsConf, err := GetKmsConf(d)
 		if err != nil {
-			return nil, err
+			log.Errorf("fail to set kms from resource:%s", d.Id())
+			if config.Kms.IsConfigured() {
+				resourceKmsConf = config.Kms
+			} else {
+				return nil, err
+			}
 		}
 		//todo support encryption context
-		for _, k := range kms.MasterKeysFromArnString(kmsConf.ARN, nil, kmsConf.Profile) {
+		for _, k := range kms.MasterKeysFromArnString(resourceKmsConf.ARN, nil, resourceKmsConf.Profile) {
 			kmsKeys = append(kmsKeys, k)
 		}
 	}
@@ -191,7 +192,12 @@ func KeyGroups(d *schema.ResourceData, encType string) ([]sops.KeyGroup, error) 
 	if "age" == encType {
 		ageConf, err := GetAgeConf(d)
 		if err != nil {
-			return nil, err
+			log.Errorf("fail to set age key")
+			if len(config.Age) > 0 {
+				ageConf = config.Age
+			} else {
+				return nil, err
+			}
 		}
 		ageKeys, err := age.MasterKeysFromRecipients(ageConf)
 		if err != nil {
@@ -205,7 +211,14 @@ func KeyGroups(d *schema.ResourceData, encType string) ([]sops.KeyGroup, error) 
 	if "mix" == encType {
 		kmsConf, err := GetKmsConf(d)
 		if err != nil {
-			return nil, err
+			log.Errorf("fail to set kms from resource:%s\n", d.Id())
+			if config.Kms.IsConfigured() {
+				log.Infof("will use kms config from provider\n")
+				kmsConf = config.Kms
+			} else {
+				log.Errorf("KMS isn't configured at all.\n")
+				return nil, err
+			}
 		}
 		//todo support encryption context
 		for _, k := range kms.MasterKeysFromArnString(kmsConf.ARN, nil, kmsConf.Profile) {
@@ -213,7 +226,14 @@ func KeyGroups(d *schema.ResourceData, encType string) ([]sops.KeyGroup, error) 
 		}
 		ageConf, err := GetAgeConf(d)
 		if err != nil {
-			return nil, err
+			log.Errorf("fail to set age key")
+			if len(config.Age) > 0 {
+				log.Infof("will use age config from provider\n")
+				ageConf = config.Age
+			} else {
+				log.Errorf("Age isn't configured at all.\n")
+				return nil, err
+			}
 		}
 		ageKeys, err := age.MasterKeysFromRecipients(ageConf)
 		if err != nil {

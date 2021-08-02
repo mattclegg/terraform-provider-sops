@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/lokkersp/terraform-provider-sops/sops/internal/sops"
 	sops2 "go.mozilla.org/sops/v3"
 	"go.mozilla.org/sops/v3/aes"
 	"io/ioutil"
@@ -97,23 +96,23 @@ func resourceLocalFileContent(d *schema.ResourceData) ([]byte, error) {
 	return []byte(content.(string)), nil
 }
 
-func sopsEncrypt(d *schema.ResourceData, content []byte) ([]byte, error) {
-	inputStore := sops.GetInputStore(d)
-	outputStore := sops.GetOutputStore(d)
+func sopsEncrypt(d *schema.ResourceData, content []byte, config *EncryptConfig) ([]byte, error) {
+	inputStore := GetInputStore(d)
+	outputStore := GetOutputStore(d)
 
 	encType := d.Get("encryption_type").(string)
 	fmt.Printf("enc type: %s\n", encType)
 
-	groups, err, bytes, err2 := getKeyGroups(d, encType)
+	groups, err, bytes, err2 := getKeyGroups(d, encType, config)
 	if err2 != nil {
 		return bytes, err2
 	}
-	encrypt, err := sops.Encrypt(sops.EncryptOpts{
+	encrypt, err := Encrypt(EncryptOpts{
 		Cipher:            aes.NewCipher(),
 		InputStore:        inputStore,
 		OutputStore:       outputStore,
 		InputPath:         d.Get("filename").(string),
-		KeyServices:       sops.LocalKeySvc(),
+		KeyServices:       LocalKeySvc(),
 		UnencryptedSuffix: "",
 		EncryptedSuffix:   "",
 		UnencryptedRegex:  "",
@@ -132,8 +131,8 @@ func sopsEncrypt(d *schema.ResourceData, content []byte) ([]byte, error) {
 	return encrypt, nil
 }
 
-func getKeyGroups(d *schema.ResourceData, encType string) ([]sops2.KeyGroup, error, []byte, error) {
-	groups, err := sops.KeyGroups(d, encType)
+func getKeyGroups(d *schema.ResourceData, encType string, config *EncryptConfig) ([]sops2.KeyGroup, error, []byte, error) {
+	groups, err := KeyGroups(d, encType, config)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -141,12 +140,13 @@ func getKeyGroups(d *schema.ResourceData, encType string) ([]sops2.KeyGroup, err
 }
 
 func resourceSopsFileCreate(ctx context.Context, d *schema.ResourceData, i interface{}) diag.Diagnostics {
+	providerConfig := i.(*EncryptConfig)
 	var diags diag.Diagnostics
 	content, err := resourceLocalFileContent(d)
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	content, err = sopsEncrypt(d, content)
+	content, err = sopsEncrypt(d, content, providerConfig)
 	if err != nil {
 		return diag.FromErr(err)
 	}
