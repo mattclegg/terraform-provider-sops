@@ -6,9 +6,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/lokkersp/terraform-provider-sops/sops/internal/sops"
 	"go.mozilla.org/sops/v3/aes"
-	age "go.mozilla.org/sops/v3/age"
-	sopsKms "go.mozilla.org/sops/v3/kms"
 	"io/ioutil"
 	"os"
 	"path"
@@ -95,51 +94,42 @@ func resourceLocalFileContent(d *schema.ResourceData) ([]byte, error) {
 	return []byte(content.(string)), nil
 }
 
-func sopsEncrypt(d *schema.ResourceData, content *string) ([]byte, error) {
+func sopsEncrypt(d *schema.ResourceData, content []byte) ([]byte, error) {
+	inputStore  := sops.GetInputStore(d)
+	outputStore  := sops.GetOutputStore(d)
+
 	encType := d.Get("encryption_type").(string)
 	fmt.Printf("enc type: %s\n", encType)
-	encryptionKey, err := getEncryptionKey(d, encType)
-	if err != nil {
-		fmt.Errorf("failed to get enc key for:%s", encType)
-		return nil, err
-	}
-	encrypt, err := aes.NewCipher().Encrypt(content, encryptionKey, "")
+
+	groups, err := sops.KeyGroups(d, encType)
 	if err != nil {
 		return nil, err
 	}
-	return []byte(encrypt), nil
+	encrypt, err := sops.Encrypt(sops.EncryptOpts{
+		Cipher:            aes.NewCipher(),
+		InputStore:        inputStore,
+		OutputStore:       outputStore,
+		InputPath:         d.Get("filename").(string),
+		KeyServices:       sops.LocalKeySvc(),
+		UnencryptedSuffix: "",
+		EncryptedSuffix:   "",
+		UnencryptedRegex:  "",
+		EncryptedRegex:    "",
+		KeyGroups:         groups,
+		GroupThreshold:    0,
+	},content)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	return encrypt, nil
 }
 
-func getEncryptionKey(d *schema.ResourceData, encType string) ([]byte, error) {
-	var encryptionKey []byte
-	fmt.Printf("%s", d)
-	switch encType {
-	case "kms":
-		kmsConf := d.Get("kms").(map[string]interface{})
-		arn := kmsConf["arn"]
-		if arn == nil {
-			return nil, fmt.Errorf("arn is not set")
-		}
-		profile := kmsConf["profile"]
-		if profile == nil {
-			return nil, fmt.Errorf("AWS profile is not set")
-		}
-		masterKey := sopsKms.NewMasterKeyFromArn(arn.(string), nil, profile.(string))
-		encryptionKey = masterKey.EncryptedDataKey()
-	case "age":
-		ageConf := d.Get("age").(map[string]interface{})
-		ageKey := ageConf["key"]
-		if ageKey == nil {
-			return nil, fmt.Errorf("Age key is not set")
-		}
-		key, err := age.MasterKeyFromRecipient(ageKey.(string))
-		if err != nil {
-			return nil, err
-		}
-		encryptionKey = key.EncryptedDataKey()
-	}
-	return encryptionKey, nil
-}
+
 
 func resourceSopsFileCreate(d *schema.ResourceData, i interface{}) error {
 
@@ -147,8 +137,7 @@ func resourceSopsFileCreate(d *schema.ResourceData, i interface{}) error {
 	if err != nil {
 		return err
 	}
-	strContent := string(content)
-	content, err = sopsEncrypt(d, &strContent)
+	content, err = sopsEncrypt(d, content)
 	if err != nil {
 		return err
 	}

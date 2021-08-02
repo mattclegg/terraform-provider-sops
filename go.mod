@@ -17,7 +17,9 @@ require (
 	github.com/howeyc/gopass v0.0.0-20190910152052-7cb4b85ec19c // indirect
 	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
+	github.com/mitchellh/go-wordwrap v1.0.0 // indirect
 	github.com/posener/complete v1.2.2 // indirect
+	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/terraform-providers/terraform-provider-local v1.4.0
 	github.com/ulikunitz/xz v0.5.6 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
