@@ -1,12 +1,15 @@
 package sops
 
 import (
+	"context"
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/lokkersp/terraform-provider-sops/sops/internal/sops"
+	sops2 "go.mozilla.org/sops/v3"
 	"go.mozilla.org/sops/v3/aes"
 	"io/ioutil"
 	"os"
@@ -65,9 +68,9 @@ func resourceSourceFile() *schema.Resource {
 				ValidateFunc: validateMode,
 			},
 		},
-		Create: resourceSopsFileCreate,
-		Read:   resourceSopsFileRead,
-		Delete: resourceSopsFileDelete,
+		CreateContext: resourceSopsFileCreate,
+		Read:          resourceSopsFileRead,
+		Delete:        resourceSopsFileDelete,
 	}
 
 }
@@ -95,15 +98,15 @@ func resourceLocalFileContent(d *schema.ResourceData) ([]byte, error) {
 }
 
 func sopsEncrypt(d *schema.ResourceData, content []byte) ([]byte, error) {
-	inputStore  := sops.GetInputStore(d)
-	outputStore  := sops.GetOutputStore(d)
+	inputStore := sops.GetInputStore(d)
+	outputStore := sops.GetOutputStore(d)
 
 	encType := d.Get("encryption_type").(string)
 	fmt.Printf("enc type: %s\n", encType)
 
-	groups, err := sops.KeyGroups(d, encType)
-	if err != nil {
-		return nil, err
+	groups, err, bytes, err2 := getKeyGroups(d, encType)
+	if err2 != nil {
+		return bytes, err2
 	}
 	encrypt, err := sops.Encrypt(sops.EncryptOpts{
 		Cipher:            aes.NewCipher(),
@@ -117,7 +120,7 @@ func sopsEncrypt(d *schema.ResourceData, content []byte) ([]byte, error) {
 		EncryptedRegex:    "",
 		KeyGroups:         groups,
 		GroupThreshold:    0,
-	},content)
+	}, content)
 
 	if err != nil {
 		return nil, err
@@ -129,17 +132,23 @@ func sopsEncrypt(d *schema.ResourceData, content []byte) ([]byte, error) {
 	return encrypt, nil
 }
 
+func getKeyGroups(d *schema.ResourceData, encType string) ([]sops2.KeyGroup, error, []byte, error) {
+	groups, err := sops.KeyGroups(d, encType)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return groups, err, nil, nil
+}
 
-
-func resourceSopsFileCreate(d *schema.ResourceData, i interface{}) error {
-
+func resourceSopsFileCreate(ctx context.Context, d *schema.ResourceData, i interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics
 	content, err := resourceLocalFileContent(d)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	content, err = sopsEncrypt(d, content)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	//content = encrypt
 	destination := d.Get("filename").(string)
@@ -149,7 +158,7 @@ func resourceSopsFileCreate(d *schema.ResourceData, i interface{}) error {
 		dirPerm := d.Get("directory_permission").(string)
 		dirMode, _ := strconv.ParseInt(dirPerm, 8, 64)
 		if err := os.MkdirAll(destinationDir, os.FileMode(dirMode)); err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 	}
 
@@ -157,13 +166,13 @@ func resourceSopsFileCreate(d *schema.ResourceData, i interface{}) error {
 	fileMode, _ := strconv.ParseInt(filePerm, 8, 64)
 
 	if err := ioutil.WriteFile(destination, content, os.FileMode(fileMode)); err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	checksum := sha1.Sum(content)
 	d.SetId(hex.EncodeToString(checksum[:]))
 
-	return nil
+	return diags
 
 }
 

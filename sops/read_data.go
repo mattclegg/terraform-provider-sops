@@ -3,7 +3,7 @@ package sops
 import (
 	"encoding/json"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"go.mozilla.org/sops/v3/decrypt"
 	"gopkg.in/yaml.v2"
 

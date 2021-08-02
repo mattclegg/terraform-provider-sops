@@ -2,7 +2,7 @@ package sops
 
 import (
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mitchellh/go-wordwrap"
 	"go.mozilla.org/sops/v3"
 	"go.mozilla.org/sops/v3/age"
@@ -189,6 +189,28 @@ func KeyGroups(d *schema.ResourceData, encType string) ([]sops.KeyGroup, error) 
 	}
 
 	if "age" == encType {
+		ageConf, err := GetAgeConf(d)
+		if err != nil {
+			return nil, err
+		}
+		ageKeys, err := age.MasterKeysFromRecipients(ageConf)
+		if err != nil {
+			return nil, err
+		}
+		for _, k := range ageKeys {
+			ageMasterKeys = append(ageMasterKeys, k)
+		}
+	}
+
+	if "mix" == encType {
+		kmsConf, err := GetKmsConf(d)
+		if err != nil {
+			return nil, err
+		}
+		//todo support encryption context
+		for _, k := range kms.MasterKeysFromArnString(kmsConf.ARN, nil, kmsConf.Profile) {
+			kmsKeys = append(kmsKeys, k)
+		}
 		ageConf, err := GetAgeConf(d)
 		if err != nil {
 			return nil, err

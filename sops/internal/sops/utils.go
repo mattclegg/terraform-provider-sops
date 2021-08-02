@@ -1,7 +1,7 @@
 package sops
 
 import (
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	scommon "go.mozilla.org/sops/v3/cmd/sops/common"
 )
 
