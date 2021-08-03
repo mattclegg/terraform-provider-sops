@@ -3,6 +3,7 @@ package sops
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -28,8 +29,13 @@ func dataSourceFileKey() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
+			"age_key_file": {
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+			},
 			"data": {
-				Type:      schema.TypeMap,
+				Type:      schema.TypeString,
 				Computed:  true,
 				Sensitive: true,
 			},
@@ -48,7 +54,13 @@ func dataSourceFileKeyRead(d *schema.ResourceData, meta interface{}) error {
 	if err != nil {
 		return err
 	}
-
+	if ageKeyFile := d.Get("age_key_file").(string); ageKeyFile != "" {
+		envVarName := "SOPS_AGE_KEY_FILE"
+		err := os.Setenv(envVarName, ageKeyFile)
+		if err != nil {
+			log.Errorf("fail to set environment variable %s.Error is %s", envVarName, err)
+		}
+	}
 	var format string
 	if inputType := d.Get("input_type").(string); inputType != "" {
 		format = inputType
@@ -71,5 +83,5 @@ func dataSourceFileKeyRead(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 	dataKey := d.Get("data_key").(string)
-	return readDataKey(content, dataKey, format, d)
+	return readDataKey(content, format, dataKey, d)
 }
