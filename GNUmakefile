@@ -6,7 +6,7 @@ CROSSBUILD_OS   = linux#windows darwin
 CROSSBUILD_ARCH = amd64# arm64 386
 SKIP_OSARCH     = darwin_386 windows_arm64
 OSARCH_COMBOS   = $(filter-out $(SKIP_OSARCH),$(foreach os,$(CROSSBUILD_OS),$(addprefix $(os)_,$(CROSSBUILD_ARCH))))
-RELEASE_FOLDER  = ~/.terraform.d/plugins/registry.terraform.io/lokkersp/sops/0.6.6/linux_amd64
+RELEASE_FOLDER  = ~/.terraform.d/plugins/registry.terraform.io/lokkersp/sops/0.6.7/linux_amd64
 
 
 default: build

@@ -28,8 +28,9 @@ func Provider() *schema.Provider {
 			},
 		},
 		DataSourcesMap: map[string]*schema.Resource{
-			"sops_file":     dataSourceFile(),
-			"sops_external": dataSourceExternal(),
+			"sops_file":       dataSourceFile(),
+			"sops_file_entry": dataSourceFileKey(),
+			"sops_external":   dataSourceExternal(),
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"sops_file": resourceSourceFile(),
