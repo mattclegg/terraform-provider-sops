@@ -3,7 +3,6 @@ package sops
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"go.mozilla.org/sops/v3/decrypt"
 	"gopkg.in/yaml.v2"
@@ -85,7 +84,16 @@ func readDataKey(content []byte, format string, key string, d *schema.ResourceDa
 	if err != nil {
 		return err
 	}
-
+	err, value := flattenFromKey(data, key)
+	out, err := yaml.Marshal(map[string]interface{}{key: data[key]})
+	if err != nil {
+		return err
+	}
+	err = d.Set("map", value)
+	err = d.Set("yaml", string(out))
+	if err != nil {
+		return err
+	}
 	d.SetId("-")
 	return nil
 }
