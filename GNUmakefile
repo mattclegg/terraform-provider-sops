@@ -2,9 +2,9 @@ export CGO_ENABLED = 0
 VERSION_TAG = $(shell git describe --tags --match='v*' --always)
 RELEASE = $(patsubst v%,%,$(VERSION_TAG))# Remove leading v to comply with Terraform Registry conventions
 VERSION_NUMBER = $(shell git describe --tags --match='v*' --always | cut -c 2- )
-CROSSBUILD_OS   = linux#windows darwin
-CROSSBUILD_ARCH = amd64# arm64 386
-SKIP_OSARCH     = darwin_386 windows_arm64
+CROSSBUILD_OS   = linux windows darwin
+CROSSBUILD_ARCH = amd64 # arm64 386
+SKIP_OSARCH     = darwin_386 # windows_arm64
 OSARCH_COMBOS   = $(filter-out $(SKIP_OSARCH),$(foreach os,$(CROSSBUILD_OS),$(addprefix $(os)_,$(CROSSBUILD_ARCH))))
 RELEASE_FOLDER  = ~/.terraform.d/plugins/registry.terraform.io/lokkersp/sops/$(VERSION_NUMBER)/linux_amd64
 
@@ -44,6 +44,7 @@ install: crossbuild
 # ./bin/hub release edit -m "" -a "releases/terraform-provider-sops_0.6.4_linux_amd64.zip#terraform-provider-sops_0.6.4_linux_amd64.zip" v0.6.4
 release: crossbuild bin/hub
 	@echo ">> uploading release $(VERSION_TAG)"
+	#./bin/hub release create -m $(VERSION_TAG) $(VERSION_TAG)
 	mkdir -p releases
 	set -e; for OSARCH in $(OSARCH_COMBOS); do \
 		zip -j releases/terraform-provider-sops_$(RELEASE)_$$OSARCH.zip binaries/$(VERSION_TAG)/$$OSARCH/terraform-provider-sops_* > /dev/null; \
