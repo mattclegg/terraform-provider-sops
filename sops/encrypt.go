@@ -3,8 +3,6 @@ package sops
 import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/mitchellh/go-wordwrap"
-	"go.mozilla.org/sops/v3"
 	"go.mozilla.org/sops/v3/age"
 	"go.mozilla.org/sops/v3/logging"
 
