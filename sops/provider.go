@@ -21,7 +21,7 @@ func Provider() *schema.Provider {
 			"age": {
 				Type:        schema.TypeMap,
 				Optional:    true,
-				Description: providerDescriptions["aws"],
+				Description: providerDescriptions["age"],
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
