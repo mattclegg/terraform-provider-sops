@@ -189,7 +189,7 @@ func KeyGroups(d *schema.ResourceData, encType string, config *EncryptConfig) ([
 
 	if "gcpkms" == encType {
 		gcpkmsConf := d.Get("gcpkms").(map[string]interface{})
-		resourceIDs := gcpkmsConf["ids"]
+		resourceIDs := gcpkmsConf["ids"].(string)
 
 		for _, k := range gcpkms.MasterKeysFromResourceIDString(resourceIDs) {
 			kmsKeys = append(kmsKeys, k)
