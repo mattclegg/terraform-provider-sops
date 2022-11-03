@@ -2,10 +2,14 @@ package sops
 
 import (
 	"fmt"
+	"path/filepath"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	wordwrap "github.com/mitchellh/go-wordwrap"
+
+	mozillasops "go.mozilla.org/sops/v3"
 	"go.mozilla.org/sops/v3/age"
 	"go.mozilla.org/sops/v3/logging"
-
 	//"go.mozilla.org/sops/v3/azkv"
 	"go.mozilla.org/sops/v3/cmd/sops/codes"
 	"go.mozilla.org/sops/v3/cmd/sops/common"
@@ -14,24 +18,22 @@ import (
 	"go.mozilla.org/sops/v3/keys"
 	"go.mozilla.org/sops/v3/keyservice"
 	"go.mozilla.org/sops/v3/kms"
-
 	"go.mozilla.org/sops/v3/version"
-	"path/filepath"
 )
 
 var log = logging.NewLogger("SOPS")
 
 type EncryptOpts struct {
-	Cipher            sops.Cipher
-	InputStore        sops.Store
-	OutputStore       sops.Store
+	Cipher            mozillasops.Cipher
+	InputStore        mozillasops.Store
+	OutputStore       mozillasops.Store
 	InputPath         string
 	KeyServices       []keyservice.KeyServiceClient
 	UnencryptedSuffix string
 	EncryptedSuffix   string
 	UnencryptedRegex  string
 	EncryptedRegex    string
-	KeyGroups         []sops.KeyGroup
+	KeyGroups         []mozillasops.KeyGroup
 	GroupThreshold    int
 }
 
@@ -75,9 +77,9 @@ func Encrypt(opts EncryptOpts, fileBytes []byte) (encryptedFile []byte, err erro
 	if err != nil {
 		return nil, err
 	}
-	tree := sops.Tree{
+	tree := mozillasops.Tree{
 		Branches: branches,
-		Metadata: sops.Metadata{
+		Metadata: mozillasops.Metadata{
 			KeyGroups:         opts.KeyGroups,
 			UnencryptedSuffix: opts.UnencryptedSuffix,
 			EncryptedSuffix:   opts.EncryptedSuffix,
@@ -159,7 +161,7 @@ func GetEncryptionKey(d *schema.ResourceData, encType string) (interface{}, erro
 	return nil, fmt.Errorf("failed to recognize encType:%tfSops", encType)
 }
 
-func KeyGroups(d *schema.ResourceData, encType string, config *EncryptConfig) ([]sops.KeyGroup, error) {
+func KeyGroups(d *schema.ResourceData, encType string, config *EncryptConfig) ([]mozillasops.KeyGroup, error) {
 	//var pgpKeys []keys.MasterKey
 	//var azkvKeys []keys.MasterKey
 	//var hcVaultMkKeys []keys.MasterKey
@@ -250,7 +252,7 @@ func KeyGroups(d *schema.ResourceData, encType string, config *EncryptConfig) ([
 			ageMasterKeys = append(ageMasterKeys, k)
 		}
 	}
-	var group sops.KeyGroup
+	var group mozillasops.KeyGroup
 	//group = append(group, azkvKeys...)
 	//group = append(group, pgpKeys...)
 	//group = append(group, hcVaultMkKeys...)
@@ -258,5 +260,5 @@ func KeyGroups(d *schema.ResourceData, encType string, config *EncryptConfig) ([
 	group = append(group, ageMasterKeys...)
 	group = append(group, kmsKeys...)
 	log.Debugf("Master keys available:  %+v", group)
-	return []sops.KeyGroup{group}, nil
+	return []mozillasops.KeyGroup{group}, nil
 }
