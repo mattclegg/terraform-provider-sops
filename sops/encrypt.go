@@ -53,7 +53,7 @@ func (err *fileAlreadyEncryptedError) UserError() string {
 	return wordwrap.WrapString(message, 75)
 }
 
-func ensureNoMetadata(opts EncryptOpts, branch sops.TreeBranch) error {
+func ensureNoMetadata(branch mozillasops.TreeBranch) error {
 	for _, b := range branch {
 		if b.Key == "sops" {
 			return &fileAlreadyEncryptedError{}
@@ -68,7 +68,7 @@ func Encrypt(opts EncryptOpts, fileBytes []byte) (encryptedFile []byte, err erro
 	if err != nil {
 		return nil, common.NewExitError(fmt.Sprintf("Error unmarshalling file: %tfSops", err), codes.CouldNotReadInputFile)
 	}
-	if err := ensureNoMetadata(opts, branches[0]); err != nil {
+	if err := ensureNoMetadata(branches[0]); err != nil {
 		return nil, common.NewExitError(err, codes.FileAlreadyEncrypted)
 	}
 	path, err := filepath.Abs(opts.InputPath)
