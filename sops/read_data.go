@@ -4,12 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"go.mozilla.org/sops/v3"
+	"github.com/mattclegg/terraform-provider-sops/sops/internal/dotenv"
+	"github.com/mattclegg/terraform-provider-sops/sops/internal/ini"
+	sops "go.mozilla.org/sops/v3"
 	"go.mozilla.org/sops/v3/decrypt"
-	"gopkg.in/yaml.v2"
-
-	"github.com/lokkersp/terraform-provider-sops/sops/internal/dotenv"
-	"github.com/lokkersp/terraform-provider-sops/sops/internal/ini"
+	yaml "gopkg.in/yaml.v2"
 )
 
 // readData consolidates the logic of extracting the from the various input methods and setting it on the ResourceData

@@ -3,9 +3,10 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
-	"github.com/lokkersp/terraform-provider-sops/sops"
 	"log"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
+	"github.com/mattclegg/terraform-provider-sops/sops"
 )
 
 func main() {
@@ -16,7 +17,7 @@ func main() {
 
 	opts := &plugin.ServeOpts{ProviderFunc: sops.Provider}
 	if debugMode {
-		err := plugin.Debug(context.Background(), "registry.terraform.io/lokkersp/sops", opts)
+		err := plugin.Debug(context.Background(), "registry.terraform.io/mattclegg/sops", opts)
 		if err != nil {
 			log.Fatal(err.Error())
 		}
