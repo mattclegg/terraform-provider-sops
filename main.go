@@ -4,7 +4,7 @@ import (
 	"context"
 	"flag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
-	"github.com/lokkersp/terraform-provider-sops/sops"
+	"github.com/mattclegg/terraform-provider-sops/sops"
 	"log"
 )
 
